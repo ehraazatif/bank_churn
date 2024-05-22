@@ -1,0 +1,265 @@
+---
+title: "Attrition Classification"
+author: "Syed Atif"
+date: "2024-05-15"
+output: pdf_document
+---
+
+```{r echo=FALSE}
+library(e1071)
+```
+
+
+```{r}
+##load data
+df <- read.csv("BankChurners.csv")
+head(df)
+```
+
+```{r}
+##get rid of unnecessary columns
+df <- df[,-c(1,22,23)]
+colnames(df)
+```
+
+```{r}
+str(df)
+```
+
+```{r}
+##inspect variables
+cols <- c(2,4,9:20)
+for (i in cols) {
+  boxplot(df[,i], xlab=colnames(df)[i])
+}
+```
+
+```{r}
+##inspect variables
+unique(df$Attrition_Flag)
+unique(df$Gender)
+unique(df$Education_Level)
+unique(df$Marital_Status)
+unique(df$Income_Category)
+unique(df$Card_Category)
+```
+
+```{r}
+##get dataset where each row has at least one "Unknown"
+edu_unknown <- which(df$Education_Level == "Unknown")
+marital_unknown <- which(df$Marital_Status == "Unknown")
+income_unknown <- which(df$Income_Category == "Unknown")
+rows_unknown <- unique(union(unique(union(edu_unknown, marital_unknown)), income_unknown))
+
+length(rows_unknown)
+```
+
+```{r}
+##take out unknowns; only make up ~30% of data and we still have a sizeable amount left over
+df2 <- df[-as.integer(rows_unknown),]
+dim(df2)
+```
+
+
+```{r}
+##convert appropriate columns to factor datatype
+df2$Attrition_Flag <- factor(df2$Attrition_Flag)
+df2$Gender <- factor(df2$Gender)
+df2$Marital_Status <- factor(df2$Marital_Status)
+
+df2$Education_Level <- factor(df2$Education_Level,
+                              levels=c(
+                                "Uneducated",
+                                "High School",
+                                "College",
+                                "Graduate",
+                                "Post-Graduate",
+                                "Doctorate"
+                              ), ordered=TRUE)
+
+df2$Income_Category <- factor(df2$Income_Category,
+                              levels=c(
+                                "Less than $40K",
+                                "$40K - $60K",
+                                "$60K - $80K",
+                                "$80K - $120K",
+                                "$120K +"
+                              ), ordered=TRUE)
+
+df2$Card_Category <- factor(df2$Card_Category,
+                            levels=c(
+                              "Blue",
+                              "Silver",
+                              "Platinum",
+                              "Gold"
+                            ), ordered=TRUE)
+```
+
+```{r}
+##inspect variables
+barplot(height=table(df2$Attrition_Flag))
+barplot(height=table(df2$Gender))
+barplot(height=table(df2$Education_Level))
+barplot(height=table(df2$Marital_Status))
+barplot(height=table(df2$Income_Category))
+barplot(height=table(df2$Card_Category))
+```
+
+many more existing customers than attrited
+very few divorced in comparison to married or single
+very, very few non-blue card members
+
+```{r}
+##balance out the dataset a bit more so that relationships are not skewed
+set.seed(0)
+
+##sample existing customers
+attrited_customer_sample <- rownames(df2[df2$Attrition_Flag=="Attrited Customer",])
+existing_customer_sample <- sample(rownames(df2[df2$Attrition_Flag=="Existing Customer",]),
+                                   length(attrited_customer_sample))
+sample_rows <- union(attrited_customer_sample, existing_customer_sample)
+df3 <- df2[sample_rows,]
+
+##going to keep married column as is for now
+##going to exclude the card category column from now on, as the vast majority of members have blue cards
+df3 <- df3[,-8]
+```
+
+
+```{r}
+##look for relationships
+#for (i in 1:19) {
+#  for (j in 1:19) {
+#    if (i != j) {
+#      plot(x=df3[,i], y=df3[,j], xlab=colnames(df3)[i], ylab=colnames(df3)[j])
+#    }
+#  }
+#}
+```
+
+```{r}
+##found the following relationships
+plot(Gender ~ Attrition_Flag, data=df3)#
+plot(Income_Category ~ Attrition_Flag, data=df3)#
+plot(Total_Relationship_Count ~ Attrition_Flag, data=df3)#
+plot(Months_Inactive_12_mon ~ Attrition_Flag, data=df3)#
+plot(Contacts_Count_12_mon ~ Attrition_Flag, data=df3)#
+plot(Total_Revolving_Bal ~ Attrition_Flag, data=df3)#
+plot(Total_Trans_Amt ~ Attrition_Flag, data=df3)#
+plot(Total_Trans_Ct ~ Attrition_Flag, data=df3)#
+plot(Total_Ct_Chng_Q4_Q1 ~ Attrition_Flag, data=df3)#
+plot(Avg_Utilization_Ratio ~ Attrition_Flag, data=df3)#
+plot(Months_on_book ~ Customer_Age, data=df3)
+plot(Income_Category ~ Gender, data=df3)
+plot(Total_Relationship_Count ~ Gender, data=df3)
+plot(Credit_Limit ~ Gender, data=df3)
+plot(Avg_Open_To_Buy ~ Gender, data=df3)
+plot(Avg_Utilization_Ratio ~ Gender, data=df3)
+plot(Gender ~ Education_Level, data=df3)
+plot(Total_Relationship_Count ~ Education_Level, data=df3)
+plot(Dependent_count ~ Marital_Status, data=df3)
+plot(Total_Relationship_Count ~ Marital_Status, data=df3)
+plot(Credit_Limit ~ Income_Category, data=df3)
+plot(Avg_Open_To_Buy ~ Income_Category, data=df3)
+plot(Avg_Utilization_Ratio ~ Income_Category, data=df3)
+plot(Avg_Open_To_Buy ~ Credit_Limit, data=df3)
+plot(Avg_Utilization_Ratio ~ Credit_Limit, data=df3)
+plot(Avg_Utilization_Ratio ~ Avg_Open_To_Buy, data=df3)
+plot(Total_Trans_Ct ~ Total_Trans_Amt, data=df3)
+```
+
+Interesting notes (things that were interesting to me and were not obvious or self-explanatory):
+1) even though females occupy higher income categories as well, they have a lower median credit limit than males
+2) average utilization ratio DECREASES as credit limit INCREASES -> very strange
+
+```{r}
+##make a model investigating relationships to Attrition_Flag
+model_1 <- glm(Attrition_Flag ~ Gender + Income_Category + Total_Relationship_Count, data=df3, family="binomial")
+```
+
+```{r}
+##investigate model significance
+model_null <- glm(Attrition_Flag ~ 1, data=df3, family="binomial")
+anova(model_null, model_1, test="Chisq")
+```
+
+The model seems statistically significant at 5%.
+
+```{r}
+##investigate significance of coefficients
+confint(model_1)
+```
+
+It seems like at a 5% significance level, the intercept, the third income category ("\$60K - \$80K"), and Total_Relationship_Count are statistically significant.
+
+
+Since the model and some of the coefficients are statistically significant, we can now determine what the coefficients tell us. 
+
+```{r}
+summary(model_1)
+```
+
+The intercept tells us that when controlling for other variables, a customer is 0.32 times as likely to be attrited versus existing. If the customer is in the "\$60K - \$80K" income category, then that likelihood increases to 0.68 times as likely. Finally, as the total relationship count increases by one relationship, then the customer's likelihood to be attrited increases by 1.3.
+
+```{r}
+##scale variables
+df4 <- apply(df3[,-c(1,3,5,6,7)], FUN=scale, MARGIN=2)
+df4 <- cbind(df4, df3[,c(1,3,5,6,7)])
+
+##split train and test sets
+set.seed(0)
+train_size <- as.integer(nrow(df4) * 0.7)
+train_index <- sample(1:nrow(df4), train_size)
+train <- df4[train_index,]
+test <- df4[-train_index,]
+```
+
+```{r}
+##test initial model's predictive power
+model_2 <- glm(Attrition_Flag ~ Gender + Income_Category + Total_Relationship_Count, data=train, family="binomial")
+
+preds <- predict(model_2, newdata=test, type="response")
+preds[preds<0.5] <- "Attrited Customer"
+preds[preds>=0.5] <- "Existing Customer"
+table(test$Attrition_Flag, preds)
+```
+
+```{r}
+##try all predictors accounting for multicollinearity
+model_3 <- glm(Attrition_Flag ~ . - Customer_Age - Credit_Limit, data=train, family="binomial")
+anova(model_3, model_2, test="Chisq")
+```
+
+The model does seem to be better.
+
+```{r}
+preds <- predict(model_3, newdata=test, type="response")
+preds[preds<0.5] <- "Attrited Customer"
+preds[preds>=0.5] <- "Existing Customer"
+table(test$Attrition_Flag, preds)
+```
+
+```{r}
+plot(model_3)
+```
+
+Investigating the plots indicates heteroscedasticity; the basic assumptions for the model have been broken. I could try and add transformations of some predictors (for example Months_on_book^2). One easy way to do that would be to instead use a SVM classifier with a radial kernel (should be more than enough).
+
+```{r}
+##initial SVM
+model_4 <- svm(Attrition_Flag ~ . - Customer_Age - Credit_Limit, data=train, kernel="radial", scale=FALSE)
+summary(model_4)
+```
+
+```{r}
+##make confusion matrix for SVM
+preds <- predict(model_4, newdata=test)
+table(test$Attrition_Flag, preds)
+```
+
+Accuracy: 88%
+Misclassification Rate: 10%
+Precision: 91%
+Recall: 89%
+
+By all metrics, the SVM is very accurate.
