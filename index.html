@@ -1628,12 +1628,30 @@ display: none;
 </div>
 
 
-<pre class="r"><code>library(e1071)</code></pre>
-<pre><code>## Warning: package &#39;e1071&#39; was built under R version 4.3.3</code></pre>
-<p>This dataset was obtained from: “<a href="https://www.kaggle.com/datasets/sakshigoyal7/credit-card-customers" class="uri">https://www.kaggle.com/datasets/sakshigoyal7/credit-card-customers</a>”.
+<p><strong>INTRODUCTION</strong><br />
+<br />
+This dataset was obtained from: “<a href="https://www.kaggle.com/datasets/sakshigoyal7/credit-card-customers" class="uri">https://www.kaggle.com/datasets/sakshigoyal7/credit-card-customers</a>”.
 The objective of the dataset is to figure out why customers are leaving
 (attriting), and what could be done to decrease the number of customers
 leaving.<br />
+<br />
+<strong>EXECUTIVE SUMMARY</strong><br />
+<br />
+It was found that the following variables were most important for
+predicting customer churn:<br />
+      1) number of months inactive within the past 12 months<br />
+      2) total revolving balance<br />
+      3) total change in balance from Q4 to Q1<br />
+      4) total monetary amount of all transactions<br />
+      5) total number of transactions<br />
+      6) number of times bank balance has changed from Q4 to Q1<br />
+<br />
+These predictors were used to make a model that can predict customer
+churn with ~90% accuracy.<br />
+</p>
+<pre class="r"><code>library(e1071)</code></pre>
+<pre><code>## Warning: package &#39;e1071&#39; was built under R version 4.3.3</code></pre>
+<p><strong>DATASET DESCRIPTION</strong><br />
 <br />
 Here are the variables in the dataset, with necessary
 explanations:<br />

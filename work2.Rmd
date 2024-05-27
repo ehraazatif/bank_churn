@@ -7,11 +7,28 @@ output:
     df_print: paged
 ---
 
+**INTRODUCTION**\
+\
+This dataset was obtained from: "https://www.kaggle.com/datasets/sakshigoyal7/credit-card-customers". The objective of the dataset is to figure out why customers are leaving (attriting), and what could be done to decrease the number of customers leaving.\
+\
+**EXECUTIVE SUMMARY**\
+\
+It was found that the following variables were most important for predicting customer churn:\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) number of months inactive within the past 12 months\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) total revolving balance\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) total change in balance from Q4 to Q1\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4) total monetary amount of all transactions\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5) total number of transactions\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6) number of times bank balance has changed from Q4 to Q1\
+\
+These predictors were used to make a model that can predict customer churn with ~90% accuracy.\
+
+
 ```{r}
 library(e1071)
 ```
 
-This dataset was obtained from: "https://www.kaggle.com/datasets/sakshigoyal7/credit-card-customers". The objective of the dataset is to figure out why customers are leaving (attriting), and what could be done to decrease the number of customers leaving.\
+**DATASET DESCRIPTION**\
 \
 Here are the variables in the dataset, with necessary explanations:\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) Attrition_Flag -> whether a customer has churned or not\
