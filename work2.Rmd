@@ -156,7 +156,7 @@ df3 <- df2[sample_rows,]
 df3 <- df3[,-8]
 ```
 
-**EDA**\
+**EDA & MODELING**\
 \
 Now that the data is clean, we can begin to investigate relationships between the variables.
 
@@ -222,34 +222,53 @@ model_1 <- glm(Attrition_Flag ~ Gender +
 ```
 
 ```{r}
-##investigate model significance
-model_null <- glm(Attrition_Flag ~ 1, data=df3, family="binomial")
-anova(model_null, model_1, test="Chisq")
+##check if model assumptions hold
+plot(model_1)
 ```
 
-The model seems statistically significant at 5%.
+The residuals are not randomly scattered about 0, and the variance is non-constant. Transformations to the predictors may help with this.
 
 ```{r}
-##investigate significance of coefficients
-confint(model_1)
+model_2 <- glm(Attrition_Flag ~ Gender +
+                 Income_Category +
+                 Total_Relationship_Count +
+                 Months_Inactive_12_mon +
+                 Contacts_Count_12_mon +
+                 Total_Trans_Amt +
+                 I(Total_Ct_Chng_Q4_Q1^2), data=df3, family="binomial")
+
+plot(model_2)
 ```
 
-It seems like at a 5% significance level, the intercept, the third income category ("\$60K - \$80K"), Total_Relationship_Count, Months_Inactive_12_mon, Contacts_Count_12_mon, and Total_Ct_Chng_Q4_Q1 are statistically significant.\
-\
-Since the model and some of the coefficients are statistically significant, the coefficients can now be interpreted.
+Raising Total_Ct_Chng_Q4_Q1 to a degree of 2 made things a bit better. Points 2511 and 758 seem very problematic for the model.
 
 ```{r}
-summary(model_1)
+df3[rownames(df3) %in% c(2511, 758),]
 ```
 
-The intercept indicates that when controlling for other variables, a customer is 0.32 times as likely to be existing versus attrited. If the customer is in the "\$60K - \$80K" income category, then that likelihood increases by 0.68. As the total relationship count increases by one relationship, then the customer's likelihood to be attrited increases by 1.3. For every additional month a customer is inactive, the likelihood increases by a factor of 0.61. As the number of contacts within the past 12 months increases by 1, the likelihood increases by 0.58. As the total transaction amount increases by 1, the likelihood stays about the same. Finally, as the total number of changes from Q4 to Q1 increase by 1, the likelihood increases by a factor of 31.7.\
-\
-**MODELING**\
-\
-Now that there is some information about which variables are most important for determining customer churn, a predictive model can be built.
+It seems like the Months_Inactive_12_mon and Avg_Utilization_Ratio columns do not reconcile for these 2 observations. The Months_Inactive_12_mon column indicates that the customers were quite active throughout the year, yet their Avg_Utilization_Ratio's are both 0. One of the columns (probably Avg_Utilization_Ratio) seems to have incorrect data, which is negatively impacting the model. These points should be removed.
 
 ```{r}
-##scale variables
+##try removing the point and see new model's performance
+df3_clean <- df3[!rownames(df3) %in% c(2511, 758),]
+
+model_3 <- glm(Attrition_Flag ~ Gender +
+                 Income_Category +
+                 Total_Relationship_Count +
+                 Months_Inactive_12_mon +
+                 Contacts_Count_12_mon +
+                 Total_Trans_Amt +
+                 I(Total_Ct_Chng_Q4_Q1^2), data=df3_clean, family="binomial")
+
+plot(model_3)
+```
+
+Unfortunately the model did not improve, and the basic assumptions still do not hold. After removing points 2511 and 758, there are now new outliers. They could also be removed, but there is no guarantee that the model assumptions will hold true. On top of that, continuously removing outliers to try and improve the model is bad practice - the data may be true, but by removing it information about the relationships between the variables is lost.\
+\
+One alternative way to use a model to determine which variables are most important for predicting customer churn (in this scenario) would be to use an SVM. SVMs use the given features and add transformations to try and form a decision boundary. While using an SVM, if the number of predictors used are minimzed, then the model can tell us something about which predictors are the most important for customer churn. The only disadvantage would be that there would be no interpretability like there is in logistic regression (ex. increasing X by 1 unit leads to a change of A in likelihood).
+
+```{r}
+##scale variables - prepare for SVM
 df4 <- apply(df3[,-c(1,3,5,6,7)], FUN=scale, MARGIN=2)
 df4 <- cbind(df4, df3[,c(1,3,5,6,7)])
 
@@ -260,41 +279,6 @@ train_index <- sample(1:nrow(df4), train_size)
 train <- df4[train_index,]
 test <- df4[-train_index,]
 ```
-
-```{r}
-##test initial model's predictive power
-model_2 <- glm(Attrition_Flag ~ Gender +
-                 Income_Category +
-                 Total_Relationship_Count +
-                 Months_Inactive_12_mon +
-                 Contacts_Count_12_mon +
-                 Total_Trans_Amt +
-                 Total_Ct_Chng_Q4_Q1, data=train, family="binomial")
-
-preds <- predict(model_2, newdata=test, type="response")
-preds[preds<0.5] <- "Attrited Customer"
-preds[preds>=0.5] <- "Existing Customer"
-table(test$Attrition_Flag, preds)
-```
-
-The model is not good; it only predict existing customers. It was unable to form a proper decision boundary.
-
-```{r}
-##try all predictors accounting for multicollinearity
-model_3 <- glm(Attrition_Flag ~ . - Customer_Age - Credit_Limit, data=train, family="binomial")
-anova(model_3, model_2, test="Chisq")
-```
-
-The model seems better than the previous one.
-
-```{r}
-preds <- predict(model_3, newdata=test, type="response")
-preds[preds<0.5] <- "Attrited Customer"
-preds[preds>=0.5] <- "Existing Customer"
-table(test$Attrition_Flag, preds)
-```
-
-There is no improvement in the performance, unfortunately. After using all predictors, the next step would be to use tranformations (ex. Months_on_book^2). One easy way to do that would be to instead use an SVM with a non-linear kernel (radial is what is used most often).
 
 ```{r}
 ##try SVM using the initial variables
@@ -409,7 +393,7 @@ By all metrics, the model is very good.\
 \
 **CONCLUSION**\
 \
-The purpose of this dataset was to determine why customers were churning. According to this objective, the following variables were found to have relationships with customer churn:\
+The purpose of this dataset was to determine why customers were churning. According to this objective, the following variables were found to have relationships with customer churn (according to plots):\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) Gender\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) Income_Category\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Total_Relationship_Count\
@@ -420,15 +404,9 @@ The purpose of this dataset was to determine why customers were churning. Accord
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8) Total_Trans_Ct\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9) Total_Ct_Chng_Q4_Q1\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;10) Avg_Utilization_Ratio\
-While the relationship certain predictors had with customer churn was self-explanatory (namely: Total_Revolving_Bal, Total_Trans_Ct, and Avg_Utilization_Ratio), the following numerical relationships between the other predictors and customer churn were found:\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) the intercept indicates that when controlling for other variables, a customer is 0.32 times as likely to be existing versus attrited\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) if the customer is in the "\$60K - \$80K" income category, then that likelihood increases to 0.68 times as likely\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) as the total relationship count increases by one relationship, then the customer's likelihood to be attrited increases by 1.3\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4) for every additional month a customer is inactive, the likelihood increases by a factor of 0.61.\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5) as the number of contacts within the past 12 months increases by 1, the likelihood increases by 0.58.\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6) as the total transaction amount increases by 1, the likelihood stays about the same\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7) as the total number of changes from Q4 to Q1 increase by 1, the likelihood increases by a factor of 31.7\
-When trying to build a predictive model, a method similar to "backward step-wise feature selection" was used, with misclassification rate as the comparison metric to try and see which predictors were crucial to predicting customer churn. The following predictors were found to be the most useful:\
+Unfortunately, no model could be built to gain numerical inferences about the above relationships.\
+\
+Another way of figuring out which variables were most important in predicting customer churn would be to use an SVM (which automatically adds transformations), then minimzing the number of predictors used in the model. To accomplish this, a method similar to "backward step-wise feature selection" was used, with misclassification rate as the comparison metric. The following predictors were found to be the most useful:\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) Months_Inactive_12_mon\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) Total_Revolving_Bal\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Total_Amt_Chng_Q4_Q1\
