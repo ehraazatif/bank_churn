@@ -208,7 +208,7 @@ Interesting notes (things that were interesting and were not obvious or self-exp
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1) even though females occupy higher income categories as well, they have a lower median credit limit than males\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) average utilization ratio DECREASES as credit limit INCREASES -> very strange\
 \
-Although there are other relationships as well, the main objective of the dataset is to figure out how to decrease customer churn. For this reason, only relationship where Attrition_Flag is the response variable will be modeled. Of the relationships depicted above, Total_Revolving_Bal and Avg_Utilization_Ratio will be excluded because they are self-explanatory. Total_Trans_Ct will also be excluded because it is collinear to Total_Trans_Amt.
+Although there are other relationships as well, the main objective of the dataset is to figure out how to decrease customer churn. For this reason, only relationships where Attrition_Flag is the response variable will be modeled. Of the relationships depicted above, Total_Trans_Ct will be excluded because it is collinear to Total_Trans_Amt.
 
 ```{r}
 ##make a model investigating relationships to Attrition_Flag
@@ -217,8 +217,10 @@ model_1 <- glm(Attrition_Flag ~ Gender +
                  Total_Relationship_Count +
                  Months_Inactive_12_mon +
                  Contacts_Count_12_mon +
+                 Total_Revolving_Bal +
                  Total_Trans_Amt +
-                 Total_Ct_Chng_Q4_Q1, data=df3, family="binomial")
+                 Total_Ct_Chng_Q4_Q1 +
+                 Avg_Utilization_Ratio, data=df3, family="binomial")
 ```
 
 ```{r}
@@ -234,8 +236,10 @@ model_2 <- glm(Attrition_Flag ~ Gender +
                  Total_Relationship_Count +
                  Months_Inactive_12_mon +
                  Contacts_Count_12_mon +
+                 Total_Revolving_Bal +
                  Total_Trans_Amt +
-                 I(Total_Ct_Chng_Q4_Q1^2), data=df3, family="binomial")
+                 I(Total_Ct_Chng_Q4_Q1^2) +
+                 Avg_Utilization_Ratio, data=df3, family="binomial")
 
 plot(model_2)
 ```
@@ -257,8 +261,10 @@ model_3 <- glm(Attrition_Flag ~ Gender +
                  Total_Relationship_Count +
                  Months_Inactive_12_mon +
                  Contacts_Count_12_mon +
+                 Total_Revolving_Bal +
                  Total_Trans_Amt +
-                 I(Total_Ct_Chng_Q4_Q1^2), data=df3_clean, family="binomial")
+                 I(Total_Ct_Chng_Q4_Q1^2) +
+                 Avg_Utilization_Ratio, data=df3_clean, family="binomial")
 
 plot(model_3)
 ```
@@ -287,8 +293,10 @@ model_4 <- svm(Attrition_Flag ~ Gender +
                  Total_Relationship_Count +
                  Months_Inactive_12_mon +
                  Contacts_Count_12_mon +
+                 Total_Revolving_Bal +
                  Total_Trans_Amt +
-                 Total_Ct_Chng_Q4_Q1, data=train, kernel="radial", scale=FALSE)
+                 Total_Ct_Chng_Q4_Q1 +
+                 Avg_Utilization_Ratio, data=train, kernel="radial", scale=FALSE)
 
 summary(model_4)
 ```
@@ -300,6 +308,7 @@ preds <- predict(model_4, newdata=test)
 table(test$Attrition_Flag, preds)
 ```
 
+The model is already quite accurate, with a misclassification rate of 18%.
 
 ```{r}
 ##try SVM with all variables
@@ -313,6 +322,8 @@ preds <- predict(model_5, newdata=test)
 table(test$Attrition_Flag, preds)
 ```
 
+Adding some predictors made the model more accurate.\
+\
 Now, a minimal predictive model will be built - maximizing the predictive power while minimizing the number of predictors used. Not only will this help identify which variables are most important for predicting customer churn, but it makes real life applications easier. If an accurate prediction can be made with as little predictors as possible, then the number of use cases in which the model can be used increases, as it becomes more generalized.
 
 ```{r}
@@ -413,4 +424,4 @@ Another way of figuring out which variables were most important in predicting cu
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4) Total_Trans_Amt\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5) Total_Trans_Ct\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6) Total_Ct_Chng_Q4_Q1\
-Notably, these predictors are a near-subset of the predictors that were initially found to have the strongest relationships with customer churn. The only exception is Total_Amt_Chng_Q4_Q1, but that is not too surprising as it is probably related to Total_Ct_Chng_Q4_Q1.
+Notably, these predictors are a near-subset of the predictors that were initially found to have the strongest relationships with customer churn. The only exception is Total_Amt_Chng_Q4_Q1, but that is not too surprising as it is probably related to Total_Ct_Chng_Q4_Q1. The SVM reinforces that most of the relationships that were found graphically were significant and correct.
